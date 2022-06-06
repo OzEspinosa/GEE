@@ -1,0 +1,360 @@
+//|-----* CENTRAR MAPA EN AREA DE INTERES  *-----|//
+
+Map.centerObject(ROI,10);
+
+//|-----* PARAMETROS DE VISUALIZACION *-----|//
+
+var vizParamsNDVI = {min: 0.1, max: 0.9, bands: ['NDVI']};
+var vizParamsL8 = {min: 0, max: 0.4, bands: ['B5','B4','B3']};
+var vizParamsL5 = {min: 0, max: 0.4, bands: ['B4','B3','B2']};
+
+//|-----* MASCARA DE NUBES E INDICES *-----|//
+
+var addQualityBandsL8 = function(image) {
+  var scored = ee.Algorithms.Landsat.simpleCloudScore(image);
+  var NDVI = image.normalizedDifference(['B5', 'B4']).rename(['NDVI']);
+  var NDBI = image.normalizedDifference(['B6', 'B5']).rename(['NDBI']);
+  var NDWI = image.normalizedDifference(['B3', 'B6']).rename(['NDWI']); 
+  var NDBSI = image.expression(
+      '(( X + Y ) - (A + B)) /(( X + Y ) + (A + B)) ', {
+        'X': image.select('B6'), //SWIR1
+        'Y': image.select('B4'),  //RED
+        'A': image.select('B5'), // NIR
+        'B': image.select('B2'), // BLUE
+  }).rename('NDBSI');
+  return image.updateMask(scored.select(['cloud']).lt(20)).addBands(NDVI)
+  .addBands(NDBI).addBands(NDWI).addBands(NDBSI);
+  }; 
+
+
+var addQualityBandsL457 = function(image) {
+  var scored = ee.Algorithms.Landsat.simpleCloudScore(image);
+  var NDVI = image.normalizedDifference(['B4', 'B3']).rename(['NDVI']);
+  var NDBI = image.normalizedDifference(['B5', 'B4']).rename(['NDBI']);
+  var NDWI = image.normalizedDifference(['B2', 'B5']).rename(['NDWI']); 
+  var NDBSI = image.expression(
+      '(( X + Y ) - (A + B)) /(( X + Y ) + (A + B)) ', {
+        'X': image.select('B5'), //SWIR1
+        'Y': image.select('B3'),  //RED
+        'A': image.select('B4'), // NIR
+        'B': image.select('B1'), // BLUE
+  }).rename('NDBSI');
+  return image.updateMask(scored.select(['cloud']).lt(20)).addBands(NDVI)
+  .addBands(NDBI).addBands(NDWI).addBands(NDBSI);
+  }; 
+
+//|-----* CARGAR IMAGENES LANDSAT Y FUNCIONES *-----|//
+
+var L8_2020RAW = L8.filterBounds(ROI)
+  .filterDate('2020-01-01','2020-12-31')
+  .map(addQualityBandsL8);
+  
+var L8_2015RAW = L8.filterBounds(ROI)
+  .filterDate('2015-01-01','2015-12-31')
+  .map(addQualityBandsL8);
+
+var L7_2010RAW = L7.filterBounds(ROI)
+  .filterDate('2010-01-01', '2010-12-31')
+  .map(addQualityBandsL457);
+  
+var L7_2005RAW = L7.filterBounds(ROI)
+  .filterDate('2005-01-01', '2005-12-31')
+  .map(addQualityBandsL457);
+
+var L5_2000RAW = L5.filterBounds(ROI)
+  .filterDate('2000-01-01', '2000-12-31')
+  .map(addQualityBandsL457);
+  
+var L5_1995RAW = L5.filterBounds(ROI)
+  .filterDate('1995-01-01', '1995-12-31')
+  .map(addQualityBandsL457);
+  
+var L5_1990RAW = L5.filterBounds(ROI)
+  .filterDate('1990-01-01', '1990-12-31')
+  .map(addQualityBandsL457);
+  
+var L5_1985RAW = L5.filterBounds(ROI)
+  .filterDate('1985-01-01', '1985-12-31')
+  .map(addQualityBandsL457);
+
+
+//|-----* CREAR GREENEST COMPOSITE *-----|//
+
+var greenest2020 = L8_2020RAW.qualityMosaic('NDVI').clip(ROI);
+var greenest2015 = L8_2015RAW.qualityMosaic('NDVI').clip(ROI);
+var greenest2010 = L7_2010RAW.qualityMosaic('NDVI').clip(ROI);
+var greenest2005 = L7_2005RAW.qualityMosaic('NDVI').clip(ROI);
+var greenest2000 = L5_2000RAW.qualityMosaic('NDVI').clip(ROI);
+var greenest1995 = L5_1995RAW.qualityMosaic('NDVI').clip(ROI);
+var greenest1990 = L5_1990RAW.qualityMosaic('NDVI').clip(ROI);
+var greenest1985 = L5_1985RAW.qualityMosaic('NDVI').clip(ROI);
+
+//|-----* CREAR COMPOSICION NDVI *-----|//
+
+var NDVI2020 = greenest2020.select('NDVI').clip(ROI);
+var NDVI2015 = greenest2015.select('NDVI').clip(ROI);
+var NDVI2010 = greenest2010.select('NDVI').clip(ROI);
+var NDVI2005 = greenest2005.select('NDVI').clip(ROI);
+var NDVI2000 = greenest2000.select('NDVI').clip(ROI);
+var NDVI1995 = greenest1995.select('NDVI').clip(ROI);
+var NDVI1990 = greenest1990.select('NDVI').clip(ROI);
+var NDVI1985 = greenest1985.select('NDVI').clip(ROI);
+
+//|-----* MOSTRAR RASTER GREENEST EN MAPA *-----|//
+
+Map.addLayer(greenest1985, vizParamsL5, 'Greenest 1985',false);
+Map.addLayer(greenest1990, vizParamsL5, 'Greenest 1990',false);
+Map.addLayer(greenest1995, vizParamsL5, 'Greenest 1995',false);
+Map.addLayer(greenest2000, vizParamsL5, 'Greenest 2000',false);
+Map.addLayer(greenest2005, vizParamsL5, 'Greenest 2005',false);
+Map.addLayer(greenest2010, vizParamsL5, 'Greenest 2010',false);
+Map.addLayer(greenest2015, vizParamsL8, 'Greenest 2015',false);
+Map.addLayer(greenest2020, vizParamsL8, 'Greenest 2020');
+
+
+throw('STOP'); /* Comentar esta linea despues de colocar puntos de entrenamiento
+
+
+//|-----* UNIR PUNTOS DE ENTRENAMIENTO PARA CLASIFICACION SUPERVISADA *-----|//
+
+var GCP = Urbano.merge(Vegetacion).merge(Tierra).merge(Agua);
+var GCP = GCP.randomColumn();
+var trainingGCP = GCP.filter(ee.Filter.lt('random', 0.7));
+var validationGCP = GCP.filter(ee.Filter.gte('random', 0.3));
+
+
+
+var composite = greenest2020;
+
+var bands = ['NDVI','NDBI','NDWI','NDBSI','B1','B2','B3','B4','B5','B7'];
+
+
+//|-----* OBTENER DATOS DE ENTRENAMIENTO SOBRE COMPOSITE  *-----|//
+
+var trainBL = composite.select(bands).sampleRegions({
+  collection: trainingGCP,
+  properties: ['landcover'],
+  scale: 30,
+  tileScale: 16
+});
+print(trainBL);
+
+//|-----* ENTRENAMIENTO DE CLASIFICADOR *-----|//
+
+
+/*
+                                        AJUSTAR EL NUMERO OPTIMO 
+                                 DE ARBOLES EN GRAFICA, ENTRE 60 Y 130
+                                                  |
+                                                  |
+                                                  V
+*/
+
+var classifier = ee.Classifier.smileRandomForest(100)
+.train({
+  features: trainBL,  
+  classProperty: 'landcover',
+  inputProperties: bands
+});
+
+print(classifier.explain());
+
+//|-----* VALIDACION Y RENDIMIENTO DE MUESTRAS *-----|//
+
+var testBL = composite.select(bands).sampleRegions({
+  collection: validationGCP,
+  properties: ['landcover'],
+  scale: 30,
+  tileScale: 16
+});
+
+//|-----* GRAFICA DE NUMBEROFTREES *-----|//
+
+var numTreesList = ee.List.sequence(10, 150, 10);
+
+var accuracies = numTreesList.map(function(numTrees) {
+  var classifier = ee.Classifier.smileRandomForest(numTrees)
+      .train({
+        features: trainBL,
+        classProperty: 'landcover',
+        inputProperties: bands
+      });
+  return testBL
+    .classify(classifier)
+    .errorMatrix('landcover', 'classification')
+    .accuracy();
+});
+
+var chart = ui.Chart.array.values({
+  array: ee.Array(accuracies),
+  axis: 0,
+  xLabels: numTreesList
+  }).setOptions({
+      title: 'Ajuste de hiperparámetros para numberOfTrees',
+      vAxis: {title: 'Exactitud de validacion'},
+      hAxis: {title: 'Numero de arboles', gridlines: {count: 15}}
+  });
+print(chart);
+
+//|-----* CREAR RASTER CLASIFICADO RESULTANTE *-----|//
+
+var classified1985 = greenest1985.classify(classifier);
+var classified1990 = greenest1990.classify(classifier);
+var classified1995 = greenest1995.classify(classifier);
+var classified2000 = greenest2000.classify(classifier);
+var classified2005 = greenest2005.classify(classifier);
+var classified2010 = greenest2010.classify(classifier);
+var classified2015 = greenest2015.classify(classifier);
+var classified2020 = greenest2020.classify(classifier);
+
+//|-----* MOSTRAR RASTER CLASIFICADO EN MAPA *-----|//
+
+Map.addLayer(classified1985, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '1985',false);
+Map.addLayer(classified1990, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '1990',false);
+Map.addLayer(classified1995, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '1995',false);
+Map.addLayer(classified2000, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '2000',false);
+Map.addLayer(classified2005, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '2005',false);
+Map.addLayer(classified2010, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '2010',false);
+Map.addLayer(classified2015, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '2015',false);
+Map.addLayer(classified2020, {min: 0, max: 3, palette: ['black', 'gray', 'yellow','cyan']}, '2020');
+
+
+/*
+
+//|-----* EXPORTAR IMAGEN CLASIFICADA *-----|//
+
+var folder = 'MXXxx';
+
+
+Export.image.toDrive({
+  image: classified2020,
+  description: 'Class2020',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: classified2015,
+  description: 'Class2015',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: classified2010,
+  description: 'Class2010',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: classified2005,
+  description: 'Class2005',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: classified2000,
+  description: 'Class2000',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: classified1995,
+  description: 'Class1995',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: classified1990,
+  description: 'Class1990',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: classified1985,
+  description: 'Class1985',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+
+//|-----* EXPORTAR IMAGEN DE APOYO *-----|//
+
+Export.image.toDrive({
+  image: NDVI2020,
+  description: 'NDVI2020',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: NDVI2015,
+  description: 'NDVI2015',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: NDVI2010,
+  description: 'NDVI2010',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: NDVI2005,
+  description: 'NDVI2005',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: NDVI2000,
+  description: 'NDVI2000',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: NDVI1995,
+  description: 'NDVI1995',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: NDVI1990,
+  description: 'NDVI1990',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+Export.image.toDrive({
+  image: NDVI1985,
+  description: 'NDVI1985',
+  scale: 30,
+  folder: folder,
+  region: ROI
+});
+
+*/
