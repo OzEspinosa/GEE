@@ -1,5 +1,3 @@
-/*. */
-
 //|-----* CENTRAR MAPA EN AREA DE INTERES  *-----|//
 
 Map.centerObject(ROI,10);
